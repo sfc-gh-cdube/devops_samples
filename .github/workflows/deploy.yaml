@@ -1,0 +1,33 @@
+name: Deploy Snowflake Configuration Changes
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  SNOWSQL_ACCOUNT: ${{ secrets.ACCOUNT }}
+  SNOWSQL_USER: ${{ secrets.USER }}
+  SNOWSQL_PWD: ${{ secrets.PWD }}
+  SNOWSQL_DATABASE: ${{ secrets.DATABASE }}
+  SNOWSQL_SCHEMA: ${{ secrets.SCHEMA }}
+  SNOWSQL_WAREHOUSE: ${{ secrets.WAREHOUSE }}
+  SNOWSQL_ROLE: ${{ secrets.ROLE }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install SnowSQL
+        run: |
+          curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.24-linux_x86_64.bash
+          SNOWSQL_DEST=~/snowflake SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.2.24-linux_x86_64.bash
+
+      - name: Run EXECUTE IMMEDIATE template
+        run: |
+          ~/snowflake/snowsql -q 'alter git repository shared.public.devops_repo fetch'
+          ~/snowflake/snowsql -q 'execute immediate from @shared.public.devops_repo/branches/main/create_or_alter/database/base.sql using ( snow_stock_name => '\''snow_stock'\'', dynamic_warehouse => '\''xsmall'\'', git_base => '\''@shared.public.devops_repo/branches/main'\'');'
